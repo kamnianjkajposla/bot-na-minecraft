@@ -14,29 +14,33 @@ server.listen(PORT, () => {
   console.log(`Serwer HTTP nasłuchuje na porcie ${PORT}`);
 });
 
-// --- 2. LISTA 2 BOTÓW ---
+// --- 2. LISTA 2 BOTÓW Z DYNAMICZNYMI NICKAMI ---
 const botConfigs = [
-  { username: 'jaandzj', isBot2: false },
-  { username: '92mismi123', isBot2: true } // Drugi bot z zaawansowanym zachowaniem
+  { username: 'jaandzj', baseName: 'jaandzj', number: 0, isBot2: false },
+  { username: '92mismi123', baseName: '92mismi', number: 123, isBot2: true } // Drugi bot z bazowym nickiem i numerem
 ];
 
 function createBot(config) {
+  // Generujemy aktualny nick z uwzględnieniem numeru (jeśli dostał bana)
+  const currentUsername = config.number > 0 ? `${config.baseName}${config.number}` : config.baseName;
+
   const bot = mineflayer.createBot({
     host: 'blokskraft.aternos.me',
     port: 50703,
-    username: config.username,
+    username: currentUsername,
     version: false
   });
 
-  // Ładujemy moduł ścieżek dla drugiego bota
-  bot.loadPlugin(pathfinder);
+  if (config.isBot2) {
+    bot.loadPlugin(pathfinder);
+  }
 
   bot.on('spawn', () => {
-    console.log(`✅ Bot [${config.username}] pomyślnie dołączył do serwera!`);
+    console.log(`✅ Bot [${currentUsername}] pomyślnie dołączył do serwera!`);
 
     // Logowanie / Rejestracja
     setTimeout(() => {
-      bot.chat('/register TwojeHaslo123');
+      bot.chat('/register TwojeHaslo123 TwojeHaslo123');
     }, 3000);
 
     setTimeout(() => {
@@ -46,7 +50,7 @@ function createBot(config) {
     // Zachowanie po starcie
     setTimeout(() => {
       if (config.isBot2) {
-        console.log(`[${config.username}] Wykonuję /rtp...`);
+        console.log(`[${currentUsername}] Wykonuję /rtp...`);
         bot.chat('/rtp');
         startBot2Behavior(bot);
       } else {
@@ -58,7 +62,7 @@ function createBot(config) {
   // Obsługa śmierci / respawnu dla drugiego bota
   bot.on('respawn', () => {
     if (config.isBot2) {
-      console.log(`[${config.username}] Bot zginął! Odrodził się i wykonuje /rtp...`);
+      console.log(`[${currentUsername}] Bot zginął! Odrodził się i wykonuje /rtp...`);
       setTimeout(() => {
         bot.chat('/rtp');
       }, 3000);
@@ -66,14 +70,23 @@ function createBot(config) {
   });
 
   bot.on('end', (reason) => {
-    console.log(`❌ Bot [${config.username}] został rozłączony. Powód: ${reason}. Ponawiam za 30s...`);
+    console.log(`❌ Bot [${currentUsername}] został rozłączony. Powód: ${reason}`);
+
+    // Sprawdzamy, czy powód rozłączenia to ban / wyrzucenie
+    const reasonStr = String(reason).toLowerCase();
+    if (reasonStr.includes('ban') || reasonStr.includes('banned') || reasonStr.includes('kick') || reasonStr.includes('disconnected')) {
+      config.number += 1; // Zwiększamy liczbę w nicku, żeby ominąć bana!
+      console.yk?.(`🔄 Wykryto bana/wyrzucenie! Zmieniam nick na nowy numer i wchodzę jako: ${config.baseName}${config.number}`);
+    }
+
+    console.log(`🔄 Ponowne łączenie za 30 sekund...`);
     setTimeout(() => {
       createBot(config);
     }, 30000);
   });
 
   bot.on('error', (err) => {
-    console.log(`⚠️ Błąd bota [${config.username}]:`, err);
+    console.log(`⚠️ Błąd bota [${currentUsername}]:`, err);
   });
 }
 
@@ -97,9 +110,8 @@ function startAntiAfk(bot) {
   }, 7000);
 }
 
-// Zaawansowane zachowanie dla Drugiego Bota (zabijanie mobów, jedzenie, chodzenie po RTP)
+// Zaawansowane zachowanie dla Drugiego Bota
 function startBot2Behavior(bot) {
-  // Pętla walki i przetrwania
   setInterval(async () => {
     try {
       // 1. Sprawdzanie poziomu głodu / jedzenia
@@ -119,10 +131,8 @@ function startBot2Behavior(bot) {
       const mob = bot.nearestEntity(filter);
 
       if (mob) {
-        // Atakuj moba
         bot.attack(mob);
       } else {
-        // Jeśli brak mobów, chodź i rozglądaj się w nowym miejscu po RTP
         const yaw = bot.entity.yaw + (Math.random() - 0.5) * 3.14;
         const pitch = (Math.random() - 0.5) * 0.8;
         await bot.look(yaw, pitch, true);
