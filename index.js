@@ -27,20 +27,20 @@ function createBot() {
     // Krok 1: Wpisanie komendy REJESTRACJI po 3 sekundach
     setTimeout(() => {
       console.log('Wysyłam komendę rejestracji...');
-      bot.chat('/register TwojeHaslo123 '); // <-- Zmień hasło na swoje
+      bot.chat('/register TwojeHaslo123'); // <-- Zmień hasło na swoje
     }, 3000);
 
-    // Krok 2: Wpisanie komendy LOGOWANIA po 6 sekundach (w razie gdyby był już zarejestrowany)
+    // Krok 2: Wpisanie komendy LOGOWANIA po 6 sekundach
     setTimeout(() => {
       console.log('Wysyłam komendę logowania...');
       bot.chat('/login TwojeHaslo123'); // <-- Zmień hasło na swoje
     }, 6000);
 
-    // Krok 3: Uruchomienie chodzenia (anty-AFK) po 9 sekundach
+    // Krok 3: Uruchomienie bezpieczniejszego chodzenia (anty-AFK) po 10 sekundach
     setTimeout(() => {
-      console.log('Rozpoczynam poruszanie się (anty-AFK)...');
+      console.log('Rozpoczynam bezpieczny ruch anty-AFK...');
       startAntiAfk(bot);
-    }, 9000);
+    }, 10000);
   });
 
   bot.on('chat', (username, message) => {
@@ -59,34 +59,26 @@ function createBot() {
   });
 }
 
-// Funkcja odpowiedzialna za chodzenie (przód, tył, boki)
+// Bezpieczna funkcja anty-AFK (wolniejsza, żeby antycheat nie krzyczał)
 function startAntiAfk(bot) {
   setInterval(async () => {
     try {
-      // 1. Idź do przodu (2 bloki)
+      // Delikatny krok do przodu
       bot.setControlState('forward', true);
-      await sleep(2000);
+      await sleep(800);
       bot.setControlState('forward', false);
 
-      // 2. Idź do tyłu (2 bloki)
+      await sleep(1000); // przerwa
+
+      // Delikatny krok do tyłu
       bot.setControlState('back', true);
-      await sleep(2000);
+      await sleep(800);
       bot.setControlState('back', false);
-
-      // 3. Idź w lewo
-      bot.setControlState('left', true);
-      await sleep(1000);
-      bot.setControlState('left', false);
-
-      // 4. Idź w prawo
-      bot.setControlState('right', true);
-      await sleep(1000);
-      bot.setControlState('right', false);
 
     } catch (e) {
       console.log('Błąd podczas ruchu anty-AFK:', e);
     }
-  }, 15000); // Powtarzaj co 15 sekund
+  }, 30000); // Wykonuj ten ruch rzadziej (np. co 30 sekund), żeby nie spamować pakietów
 }
 
 function sleep(ms) {
