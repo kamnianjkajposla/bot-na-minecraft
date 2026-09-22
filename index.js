@@ -1,5 +1,7 @@
 const mineflayer = require('mineflayer');
 const http = require('http');
+const { goals, Movements } = require('mineflayer-pathfinder');
+const pathfinder = require('mineflayer-pathfinder').pathfinder;
 
 // --- 1. PROSTY SERWER HTTP DLA RENDERA ---
 const PORT = process.env.PORT || 3000;
@@ -13,56 +15,69 @@ server.listen(PORT, () => {
 });
 
 // --- 2. LISTA 2 BOTÓW ---
-const botUsernames = [
-  'jaandzj',       // Pierwszy bot
-  '92mismi123'   // Drugi bot (możesz zmienić ten nick na jaki chcesz)
+const botConfigs = [
+  { username: 'jaandzj', isBot2: false },
+  { username: '92mismi123', isBot2: true } // Drugi bot z zaawansowanym zachowaniem
 ];
 
-// Funkcja tworząca pojedynczego bota
-function createBot(username) {
+function createBot(config) {
   const bot = mineflayer.createBot({
-    host: 'blokskraft.aternos.me', // Adres serwera
-    port: 50703,                   // Port serwera (zmień, jeśli Aternos zmieni)
-    username: username,            // Nick aktualnego bota
-    version: false                 // Automatyczna wersja
+    host: 'blokskraft.aternos.me',
+    port: 50703,
+    username: config.username,
+    version: false
   });
 
-  bot.on('spawn', () => {
-    console.log(`✅ Bot [${username}] pomyślnie dołączył do serwera!`);
+  // Ładujemy moduł ścieżek dla drugiego bota
+  bot.loadPlugin(pathfinder);
 
-    // Krok 1: Wpisanie komendy REJESTRACJI po 3 sekundach
+  bot.on('spawn', () => {
+    console.log(`✅ Bot [${config.username}] pomyślnie dołączył do serwera!`);
+
+    // Logowanie / Rejestracja
     setTimeout(() => {
-      bot.chat('/register TwojeHaslo123'); // Zmień hasło na swoje
+      bot.chat('/register TwojeHaslo123');
     }, 3000);
 
-    // Krok 2: Wpisanie komendy LOGOWANIA po 6 sekundach
     setTimeout(() => {
-      bot.chat('/login TwojeHaslo123'); // Zmień hasło na swoje
+      bot.chat('/login TwojeHaslo123');
     }, 6000);
 
-    // Krok 3: Uruchomienie ruchu anty-AFK po 10 sekundach
+    // Zachowanie po starcie
     setTimeout(() => {
-      startAntiAfk(bot);
+      if (config.isBot2) {
+        console.log(`[${config.username}] Wykonuję /rtp...`);
+        bot.chat('/rtp');
+        startBot2Behavior(bot);
+      } else {
+        startAntiAfk(bot);
+      }
     }, 10000);
   });
 
-  bot.on('chat', (sender, message) => {
-    if (sender === bot.username) return;
+  // Obsługa śmierci / respawnu dla drugiego bota
+  bot.on('respawn', () => {
+    if (config.isBot2) {
+      console.log(`[${config.username}] Bot zginął! Odrodził się i wykonuje /rtp...`);
+      setTimeout(() => {
+        bot.chat('/rtp');
+      }, 3000);
+    }
   });
 
   bot.on('end', (reason) => {
-    console.log(`❌ Bot [${username}] został rozłączony. Powód: ${reason}. Ponawiam za 30s...`);
+    console.log(`❌ Bot [${config.username}] został rozłączony. Powód: ${reason}. Ponawiam za 30s...`);
     setTimeout(() => {
-      createBot(username);
+      createBot(config);
     }, 30000);
   });
 
   bot.on('error', (err) => {
-    console.log(`⚠️ Błąd bota [${username}]:`, err);
+    console.log(`⚠️ Błąd bota [${config.username}]:`, err);
   });
 }
 
-// Funkcja ruchu anty-AFK (chodzenie i skakanie)
+// Zwykły anty-AFK dla pierwszego bota
 function startAntiAfk(bot) {
   setInterval(async () => {
     try {
@@ -72,31 +87,67 @@ function startAntiAfk(bot) {
 
       const kierunki = ['forward', 'back', 'left', 'right'];
       const wybranyKierunek = kierunki[Math.floor(Math.random() * kierunki.length)];
-      const czasRuchu = Math.floor(Math.random() * 2000) + 1000;
-
       bot.setControlState(wybranyKierunek, true);
-      if (Math.random() > 0.5) {
-        bot.setControlState('jump', true);
-      }
+      if (Math.random() > 0.5) bot.setControlState('jump', true);
 
-      await sleep(czasRuchu);
-
+      await sleep(1500);
       bot.setControlState(wybranyKierunek, false);
       bot.setControlState('jump', false);
-    } catch (e) {
-      // Ignorujemy błędy ruchu
-    }
+    } catch (e) {}
   }, 7000);
+}
+
+// Zaawansowane zachowanie dla Drugiego Bota (zabijanie mobów, jedzenie, chodzenie po RTP)
+function startBot2Behavior(bot) {
+  // Pętla walki i przetrwania
+  setInterval(async () => {
+    try {
+      // 1. Sprawdzanie poziomu głodu / jedzenia
+      if (bot.food < 16) {
+        const foodItem = bot.inventory.items().find(item => item.name.includes('beef') || item.name.includes('pork') || item.name.includes('bread') || item.name.includes('mutton') || item.name.includes('chicken'));
+        if (foodItem) {
+          try {
+            await bot.equip(foodItem, 'hand');
+            await bot.consume();
+            console.log(`[${bot.username}] Zjadłem jedzenie, aby uzupełnić głód.`);
+          } catch (err) {}
+        }
+      }
+
+      // 2. Szukanie mobów w pobliżu do zaatakowania
+      const filter = entity => entity.type === 'mob' && entity.position.distanceTo(bot.entity.position) < 6;
+      const mob = bot.nearestEntity(filter);
+
+      if (mob) {
+        // Atakuj moba
+        bot.attack(mob);
+      } else {
+        // Jeśli brak mobów, chodź i rozglądaj się w nowym miejscu po RTP
+        const yaw = bot.entity.yaw + (Math.random() - 0.5) * 3.14;
+        const pitch = (Math.random() - 0.5) * 0.8;
+        await bot.look(yaw, pitch, true);
+
+        const kierunki = ['forward', 'back', 'left', 'right'];
+        const wybranyKierunek = kierunki[Math.floor(Math.random() * kierunki.length)];
+        bot.setControlState(wybranyKierunek, true);
+        if (Math.random() > 0.4) bot.setControlState('jump', true);
+
+        await sleep(2000);
+        bot.setControlState(wybranyKierunek, false);
+        bot.setControlState('jump', false);
+      }
+
+    } catch (e) {}
+  }, 5000);
 }
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// --- 3. URUCHOMIENIE DWÓCH BOTÓW Z OPRÓŻNIENIEM STARTU ---
-botUsernames.forEach((name, index) => {
-  // Drugi bot wchodzi 4 sekundy po pierwszym, żeby Aternos ich nie odrzucił za nagły ruch
+// --- 3. URUCHOMIENIE DWÓCH BOTÓW ---
+botConfigs.forEach((config, index) => {
   setTimeout(() => {
-    createBot(name);
+    createBot(config);
   }, index * 4000);
 });
