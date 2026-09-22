@@ -36,9 +36,9 @@ function createBot() {
       bot.chat('/login TwojeHaslo123'); // <-- Zmień hasło na swoje
     }, 6000);
 
-    // Krok 3: Uruchomienie bezpieczniejszego chodzenia (anty-AFK) po 10 sekundach
+    // Krok 3: Uruchomienie chodzenia i skakania (anty-AFK w obrębie 11 bloków) po 10 sekundach
     setTimeout(() => {
-      console.log('Rozpoczynam bezpieczny ruch anty-AFK...');
+      console.log('Rozpoczynam aktywność anty-AFK (chodzenie i skakanie)...');
       startAntiAfk(bot);
     }, 10000);
   });
@@ -59,26 +59,50 @@ function createBot() {
   });
 }
 
-// Bezpieczna funkcja anty-AFK (wolniejsza, żeby antycheat nie krzyczał)
+// Funkcja anty-AFK: skakanie, obroty i chodzenie w bezpiecznym obrębie
 function startAntiAfk(bot) {
   setInterval(async () => {
     try {
-      // Delikatny krok do przodu
-      bot.setControlState('forward', true);
-      await sleep(800);
-      bot.setControlState('forward', false);
+      // Losujemy akcję: 0 = przód/tył, 1 = boki, 2 = skok z obrotem
+      const akcja = Math.floor(Math.random() * 3);
 
-      await sleep(1000); // przerwa
+      if (akcja === 0) {
+        // Chodzenie przód i tył
+        bot.setControlState('forward', true);
+        await sleep(1500);
+        bot.setControlState('forward', false);
+        
+        bot.setControlState('back', true);
+        await sleep(1500);
+        bot.setControlState('back', false);
+      } 
+      else if (akcja === 1) {
+        // Chodzenie w boki (lewo/prawo)
+        bot.setControlState('left', true);
+        await sleep(1000);
+        bot.setControlState('left', false);
 
-      // Delikatny krok do tyłu
-      bot.setControlState('back', true);
-      await sleep(800);
-      bot.setControlState('back', false);
+        bot.setControlState('right', true);
+        await sleep(1000);
+        bot.setControlState('right', false);
+      } 
+      else {
+        // Skakanie połączone z lekkim obrotem głowy
+        bot.setControlState('jump', true);
+        
+        // Zmiana kierunku patrzenia (obrót głowy)
+        const yaw = bot.entity.yaw + (Math.random() - 0.5) * 2;
+        const pitch = (Math.random() - 0.5) * 0.5;
+        await bot.look(yaw, pitch, true);
+
+        await sleep(800);
+        bot.setControlState('jump', false);
+      }
 
     } catch (e) {
-      console.log('Błąd podczas ruchu anty-AFK:', e);
+      console.log('Błąd podczas anty-AFK:', e);
     }
-  }, 30000); // Wykonuj ten ruch rzadziej (np. co 30 sekund), żeby nie spamować pakietów
+  }, 10000); // Wykonuj losową akcję co 10 sekund
 }
 
 function sleep(ms) {
