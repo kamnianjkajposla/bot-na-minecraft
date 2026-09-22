@@ -40,7 +40,7 @@ function createBot(config) {
 
     // Logowanie / Rejestracja
     setTimeout(() => {
-      bot.chat('/register TwojeHaslo123 TwojeHaslo123');
+      bot.chat('/register TwojeHaslo123');
     }, 3000);
 
     setTimeout(() => {
