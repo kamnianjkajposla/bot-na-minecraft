@@ -15,28 +15,32 @@ server.listen(PORT, () => {
 // --- 2. LOGIKA BOTA MINECRAFT ---
 function createBot() {
   const bot = mineflayer.createBot({
-    host: process.env.MC_HOST,                  
-    port: parseInt(process.env.MC_PORT) || 50703, 
-    username: process.env.MC_USERNAME || 'jaandzj', 
-    version: process.env.MC_VERSION || false      
+    host: 'blokskraft.aternos.me', // Adres serwera
+    port: 50703,                   // Port serwera
+    username: 'jaandzj',           // Nick bota
+    version: false                 // Automatyczna wersja
   });
 
   bot.on('spawn', () => {
     console.log('✅ Bot pomyślnie dołączył do serwera Minecraft!');
 
-    // Czekamy 3 sekundy (3000 milisekund) po wejściu, żeby serwer zdążył załadować świat i wyświetlić prośbę o logowanie
+    // Krok 1: Wpisanie komendy REJESTRACJI po 3 sekundach
     setTimeout(() => {
-      // Jeśli serwer wymaga rejestracji, bot wpisze /register (zmień hasło na własne)
-      // Pamiętaj: hasło musi być w cudzysłowie!
-      console.log('Wysyłam komendę rejestracji/logowania...');
-      
-      // Przykład rejestracji (jeśli bot wchodzi po raz pierwszy):
-      bot.chat('/register TwojeHasło123 TwojeHasło123');
+      console.log('Wysyłam komendę rejestracji...');
+      bot.chat('/register TwojeHaslo123 '); // <-- Zmień hasło na swoje
+    }, 3000);
 
-      // Opcjonalnie: Jeśli bot jest już zarejestrowany, odkomentuj linijkę poniżej (usuń //), a zakomentuj wyższą:
-      // bot.chat('/login TwojeHasło123');
+    // Krok 2: Wpisanie komendy LOGOWANIA po 6 sekundach (w razie gdyby był już zarejestrowany)
+    setTimeout(() => {
+      console.log('Wysyłam komendę logowania...');
+      bot.chat('/login TwojeHaslo123'); // <-- Zmień hasło na swoje
+    }, 6000);
 
-    }, 3000); // Tutaj możesz zmienić czas (np. 5000 = 5 sekund)
+    // Krok 3: Uruchomienie chodzenia (anty-AFK) po 9 sekundach
+    setTimeout(() => {
+      console.log('Rozpoczynam poruszanie się (anty-AFK)...');
+      startAntiAfk(bot);
+    }, 9000);
   });
 
   bot.on('chat', (username, message) => {
@@ -55,5 +59,38 @@ function createBot() {
   });
 }
 
-// Uruchomienie bota
+// Funkcja odpowiedzialna za chodzenie (przód, tył, boki)
+function startAntiAfk(bot) {
+  setInterval(async () => {
+    try {
+      // 1. Idź do przodu (2 bloki)
+      bot.setControlState('forward', true);
+      await sleep(2000);
+      bot.setControlState('forward', false);
+
+      // 2. Idź do tyłu (2 bloki)
+      bot.setControlState('back', true);
+      await sleep(2000);
+      bot.setControlState('back', false);
+
+      // 3. Idź w lewo
+      bot.setControlState('left', true);
+      await sleep(1000);
+      bot.setControlState('left', false);
+
+      // 4. Idź w prawo
+      bot.setControlState('right', true);
+      await sleep(1000);
+      bot.setControlState('right', false);
+
+    } catch (e) {
+      console.log('Błąd podczas ruchu anty-AFK:', e);
+    }
+  }, 15000); // Powtarzaj co 15 sekund
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 createBot();
