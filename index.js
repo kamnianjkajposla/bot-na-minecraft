@@ -16,7 +16,7 @@ server.listen(PORT, () => {
 function createBot() {
   const bot = mineflayer.createBot({
     host: 'blokskraft.aternos.me', // Adres serwera
-    port: 50703,                   // Port serwera
+    port: 50703,                   // Port serwera (pamiętaj o zmianie, jeśli Aternos go zmieni)
     username: 'jaandzj',           // Nick bota
     version: false                 // Automatyczna wersja
   });
@@ -36,9 +36,9 @@ function createBot() {
       bot.chat('/login TwojeHaslo123'); // <-- Zmień hasło na swoje
     }, 6000);
 
-    // Krok 3: Uruchomienie chodzenia i skakania (anty-AFK w obrębie 11 bloków) po 10 sekundach
+    // Krok 3: Uruchomienie aktywnego chodzenia po 10 sekundach
     setTimeout(() => {
-      console.log('Rozpoczynam aktywność anty-AFK (chodzenie i skakanie)...');
+      console.log('Rozpoczynam dynamiczny ruch anty-AFK...');
       startAntiAfk(bot);
     }, 10000);
   });
@@ -59,50 +59,39 @@ function createBot() {
   });
 }
 
-// Funkcja anty-AFK: skakanie, obroty i chodzenie w bezpiecznym obrębie
+// Bardziej dynamiczna funkcja anty-AFK (chodzi w różne strony, skacze i obraca się)
 function startAntiAfk(bot) {
   setInterval(async () => {
     try {
-      // Losujemy akcję: 0 = przód/tył, 1 = boki, 2 = skok z obrotem
-      const akcja = Math.floor(Math.random() * 3);
+      // 1. Losowy obrót głowy (rozglądanie się wokol)
+      const yaw = bot.entity.yaw + (Math.random() - 0.5) * 3.14; // losowy kąt obrotu
+      const pitch = (Math.random() - 0.5) * 0.8; // delikatnie góra/dół
+      await bot.look(yaw, pitch, true);
 
-      if (akcja === 0) {
-        // Chodzenie przód i tył
-        bot.setControlState('forward', true);
-        await sleep(1500);
-        bot.setControlState('forward', false);
-        
-        bot.setControlState('back', true);
-        await sleep(1500);
-        bot.setControlState('back', false);
-      } 
-      else if (akcja === 1) {
-        // Chodzenie w boki (lewo/prawo)
-        bot.setControlState('left', true);
-        await sleep(1000);
-        bot.setControlState('left', false);
+      // 2. Losowy wybór kierunku ruchu (przód, tył, lewo, prawo lub kombinacje)
+      const kierunki = ['forward', 'back', 'left', 'right'];
+      const wybranyKierunek = kierunki[Math.floor(Math.random() * kierunki.length)];
+      const czasRuchu = Math.floor(Math.random() * 2000) + 1000; // od 1 do 3 sekund ruchu
 
-        bot.setControlState('right', true);
-        await sleep(1000);
-        bot.setControlState('right', false);
-      } 
-      else {
-        // Skakanie połączone z lekkim obrotem głowy
+      // Włączamy ruch w losowym kierunku
+      bot.setControlState(wybranyKierunek, true);
+      
+      // Czasami w trakcie ruchu dodajmy skok
+      if (Math.random() > 0.5) {
         bot.setControlState('jump', true);
-        
-        // Zmiana kierunku patrzenia (obrót głowy)
-        const yaw = bot.entity.yaw + (Math.random() - 0.5) * 2;
-        const pitch = (Math.random() - 0.5) * 0.5;
-        await bot.look(yaw, pitch, true);
-
-        await sleep(800);
-        bot.setControlState('jump', false);
       }
 
+      // Czekamy chwilę, gdy bot idzie
+      await sleep(czasRuchu);
+
+      // Wyłączamy ruchy
+      bot.setControlState(wybranyKierunek, false);
+      bot.setControlState('jump', false);
+
     } catch (e) {
-      console.log('Błąd podczas anty-AFK:', e);
+      console.log('Błąd podczas dynamicznego anty-AFK:', e);
     }
-  }, 10000); // Wykonuj losową akcję co 10 sekund
+  }, 7000); // Wykonuje nową akcję losową co 7 sekund
 }
 
 function sleep(ms) {
