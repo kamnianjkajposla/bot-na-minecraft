@@ -215,7 +215,7 @@ function createBotInstance(baseUsername, isAdvancedBot) {
       botInfo.online = true;
       console.log(`✅ Bot [${username}] dołączył do serwera!`);
 
-      setTimeout(() => { bot.chat('/register TwojeHaslo123 TwojeHaslo123'); }, 3000);
+      setTimeout(() => { bot.chat('/register TwojeHaslo123 '); }, 3000);
       setTimeout(() => { bot.chat('/login TwojeHaslo123'); }, 6000);
 
       setTimeout(() => {
