@@ -177,7 +177,7 @@ function startAllBots() {
   console.log(`🚀 Uruchamiam ${serverConfig.botCount} botów dla ${serverConfig.host}:${serverConfig.port}...`);
 
   for (let i = 0; i < serverConfig.botCount; i++) {
-    const baseName = i === 0 ? 'jaandzj' : `bot_user_${i + 1}`;
+    const baseName = i === 0 ? 'jaandzj' : `000janbiter67{i + 1}`;
     
     setTimeout(() => {
       createBotInstance(baseName, i === 1);
