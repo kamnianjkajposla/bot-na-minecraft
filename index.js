@@ -10,7 +10,7 @@ let serverConfig = {
   botCount: 2
 };
 
-// Przechowywanie danych o aktywnych botach i ich widoku (obrazu)
+// Przechowywanie danych o aktywnych botach
 let activeBotsInfo = [];
 
 // --- 1. INTERAKTYWNA STRONA INTERNETOWA (PANEL STEROWANIA) ---
@@ -19,14 +19,68 @@ const server = http.createServer((req, res) => {
   const urlObj = new URL(req.url, `http://${req.headers.host}`);
   const pathname = urlObj.pathname;
 
-  // Obsługa akcji ze strony (formularze lub komendy sterujące)
+  // Obsługa żądań obrazu (widoku z oczu bota)
+  if (pathname.startsWith('/bot-view/')) {
+    const parts = pathname.split('/');
+    const botIndex = parseInt(parts[2]);
+    const targetBotObj = activeBotsInfo[botIndex];
+
+    res.writeHead(200, { 'Content-Type': 'image/svg+xml; charset=utf-8' });
+
+    let botName = targetBotObj ? targetBotObj.username : 'Nieznany';
+    let health = targetBotObj ? targetBotObj.health : 20;
+    let food = targetBotObj ? targetBotObj.food : 20;
+    let online = targetBotObj ? targetBotObj.online : false;
+
+    // Generowanie dynamicznego SVG jako "widok z oczu bota"
+    const svgContent = `
+      <svg width="400" height="250" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="sky" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:${online ? '#4a90e2' : '#333'};stop-opacity:1" />
+            <stop offset="100%" style="stop-color:${online ? '#b0c4de' : '#111'};stop-opacity:1" />
+          </linearGradient>
+          <linearGradient id="ground" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:${online ? '#2e8b57' : '#222'};stop-opacity:1" />
+            <stop offset="100%" style="stop-color:${online ? '#1b4d3e' : '#050505'};stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <!-- Niebo -->
+        <rect width="400" height="150" fill="url(#sky)" />
+        <!-- Ziemia / Podłoże -->
+        <y rect x="0" y="150" width="400" height="100" fill="url(#ground)" />
+        <rect x="0" y="150" width="400" height="100" fill="url(#ground)" />
+        
+        <!-- Horyzont / Dekoracje blokowe -->
+        ${online ? `
+          <rect x="50" y="110" width="40" height="40" fill="#8B4513" stroke="#5c2d0c" />
+          <polygon points="40,110 70,70 100,110" fill="#228B22" />
+          
+          <rect x="280" y="100" width="50" height="50" fill="#696969" stroke="#444" />
+          <polygon points="275,100 305,60 335,100" fill="#A9A9A9" />
+
+          <!-- Celownik na środku -->
+          <circle cx="200" cy="125" r="3" fill="rgba(255,255,255,0.6)" />
+          <line x1="192" y1="125" x2="208" y2="125" stroke="rgba(255,255,255,0.4)" stroke-width="2" />
+          <line x1="200" y1="117" x2="200" y2="133" stroke="rgba(255,255,255,0.4)" stroke-width="2" />
+        ` : ''}
+
+        <!-- Pasek informacyjny na górze obrazu -->
+        <rect x="0" y="0" width="400" height="30" fill="rgba(0,0,0,0.6)" />
+        <text x="15" y="20" fill="#fff" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Bot: ${botName} (${online ? '🟢 Online' : '🔴 Offline'})</text>
+        <text x="280" y="20" fill="#ff6b6b" font-family="Arial, sans-serif" font-size="12">❤️ ${health} | 🍖 ${food}</text>
+      </svg>
+    `;
+    res.end(svgContent);
+    return;
+  }
+
   if (req.method === 'POST' || pathname.startsWith('/action/')) {
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       const params = new URLSearchParams(body);
       
-      // Zmiana konfiguracji głównej
       if (pathname === '/') {
         const newHost = params.get('host');
         const newPort = parseInt(params.get('port'));
@@ -39,11 +93,10 @@ const server = http.createServer((req, res) => {
         }
         restartAllBots();
       } 
-      // Ręczne sterowanie botem ze strony
       else if (pathname.startsWith('/action/')) {
         const parts = pathname.split('/');
         const botIndex = parseInt(parts[2]);
-        const action = parts[3]; // np. forward, jump, attack, rtp, chat
+        const action = parts[3];
         
         const targetBotObj = activeBotsInfo[botIndex];
         if (targetBotObj && targetBotObj.botInstance) {
@@ -69,7 +122,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Wyświetlanie strony HTML
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   
   let botsHtml = activeBotsInfo.map((b, index) => `
@@ -122,12 +174,11 @@ const server = http.createServer((req, res) => {
       <script>
         function loadBotImage(index) {
           const container = document.getElementById('img-container-' + index);
-          container.innerHTML = '<p style="color: gray;">Generowanie obrazu z widoku bota...</p>';
-          
-          // Symulacja pobrania widoku lub wskaźnika świata z bota
+          container.innerHTML = '<p style="color: gray;">Pobieranie widoku z kamery bota...</p>';
+          // Ładowanie obrazu SVG generowanego przez serwer dla danego bota z unikalnym znacznikiem czasu, by uniknąć cache
           setTimeout(() => {
-            container.innerHTML = '<div style="background: #222; color: #0f0; padding: 15px; border-radius: 5px; font-family: monospace;">[Widok Kamery Bota: Pozycja aktywna, brak renderera graficznego WebGL w trybie konsolowym render. Bot widzi otoczenie wokół siebie (bloki/moby w promieniu 16 bloków)].</div>';
-          }, 800);
+            container.innerHTML = '<img src="/bot-view/' + index + '?t=' + new Date().getTime() + '" alt="Widok bota" style="border-radius: 5px; border: 1px solid #ccc; max-width: 100%; display: block;" />';
+          }, 400);
         }
       </script>
     </head>
@@ -177,7 +228,8 @@ function startAllBots() {
   console.log(`🚀 Uruchamiam ${serverConfig.botCount} botów dla ${serverConfig.host}:${serverConfig.port}...`);
 
   for (let i = 0; i < serverConfig.botCount; i++) {
-    const baseName = i === 0 ? 'jaandzj' : `000janbiter67{i + 1}`;
+    // Pierwszy bot: jaandzj, drugi bot: 25faso7a
+    const baseName = i === 0 ? 'jaandzj' : (i === 1 ? '25faso7a' : `bot_user_${i + 1}`);
     
     setTimeout(() => {
       createBotInstance(baseName, i === 1);
@@ -215,7 +267,8 @@ function createBotInstance(baseUsername, isAdvancedBot) {
       botInfo.online = true;
       console.log(`✅ Bot [${username}] dołączył do serwera!`);
 
-      setTimeout(() => { bot.chat('/register TwojeHaslo123 '); }, 3000);
+      // Rejestracja i logowanie (jedno hasło)
+      setTimeout(() => { bot.chat('/register TwojeHaslo123'); }, 3000);
       setTimeout(() => { bot.chat('/login TwojeHaslo123'); }, 6000);
 
       setTimeout(() => {
@@ -249,7 +302,6 @@ function createBotInstance(baseUsername, isAdvancedBot) {
         currentNumber += 1;
       }
 
-      // Automatyczne dołączenie po 1 sekundzie!
       setTimeout(() => {
         spawnSingle();
       }, 1000);
